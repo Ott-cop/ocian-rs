@@ -1,4 +1,4 @@
-use std::env::{self};
+use std::env::{self, temp_dir};
 use std::fs;
 use actix_multipart::form::MultipartForm;
 use actix_multipart::form::{tempfile::TempFile, text::Text};
@@ -6,9 +6,9 @@ use actix_web::{web, HttpResponse, Responder};
 use lettre::message::header::{self, ContentType};
 use lettre::message::{Attachment, Mailbox, MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::{Credentials, Mechanism};
-use lettre::transport::smtp::client::TlsParameters;
-use lettre::{AsyncSmtpTransport, AsyncTransport, Message, SmtpTransport, Tokio1Executor, Transport};
+use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use uuid::Uuid;
+
 
 use crate::AppState;
 
@@ -36,7 +36,7 @@ struct Error<'a> {
     error: Vec<&'a str>
 }
 
-fn validate(name: &String, email: &String, phone: &String, subject: &String, message: &String) -> Result<(), Error<'static>> {
+fn validate(name: &String, email: &String, phone: &String, subject: Option<&String>, message: &String) -> Result<(), Error<'static>> {
 
     let mut error: Vec<&str> = vec![];
 
@@ -46,9 +46,11 @@ fn validate(name: &String, email: &String, phone: &String, subject: &String, mes
         error.push("email");
     } if phone.len() < 7 || phone.len() > 20 {
         error.push("phone");
-    } if subject.len() < 5 || subject.len() > 50 {
-        error.push("subject");
-    } if message.len() < 6 || message.len() > 500 {
+    } if subject.is_some() {
+        if subject.unwrap().len() < 5 || subject.unwrap().len() > 50 {
+            error.push("subject");
+        }
+    }  if message.len() < 6 || message.len() > 500 {
         error.push("message");
     }
 
@@ -66,7 +68,7 @@ fn validate(name: &String, email: &String, phone: &String, subject: &String, mes
 
 pub async fn send_proposal(app_state: web::Data<AppState>, req: web::Json<User>) -> impl Responder {
 
-    if let Err(err) = validate(&req.name, &req.email, &req.phone, &req.subject, &req.message) { 
+    if let Err(err) = validate(&req.name, &req.email, &req.phone, Some(&req.subject), &req.message) { 
         return HttpResponse::BadRequest().json(err);
     } 
     
@@ -84,7 +86,7 @@ pub async fn send_proposal(app_state: web::Data<AppState>, req: web::Json<User>)
 
 pub async fn send_contact_us(app_state: web::Data<AppState>, req: web::Json<User>) -> impl Responder {
 
-    if let Err(err) = validate(&req.name, &req.email, &req.phone, &req.subject, &req.message) { 
+    if let Err(err) = validate(&req.name, &req.email, &req.phone, Some(&req.subject), &req.message) { 
         return HttpResponse::BadRequest().json(err);
     } 
 
@@ -101,20 +103,48 @@ pub async fn send_contact_us(app_state: web::Data<AppState>, req: web::Json<User
 }
 
 pub async fn send_work_with_us(MultipartForm(form): MultipartForm<Curriculum>) -> impl Responder {
-    let stmp_key: String = env::var("STMP_KEY").expect("STMP_KEY not found!");
     let from_email: String = env::var("FROM_EMAIL").expect("FROM_EMAIL not found!");
     let host: String = env::var("HOST").expect("HOST not found!");
     let to_email = env::var("TO_EMAIL").expect("TO_EMAIL not found!");
     let username = env::var("USERNAME").expect("USERNAME not found!");
     let password = env::var("PASSWORD").expect("PASSWORD not found!");
+    
+    if let Err(err) = validate(&form.name.0, &form.email.0, &form.email.0, None, &form.message.0) {
+        return HttpResponse::BadRequest().json(err);
+    }
+
+    if form.file.file_name.is_none() {
+        return HttpResponse::BadRequest().json("CV is required");
+    }
 
     let f = form.file;
+
     let filename = format!("{}-{}-{}", form.name.0, Uuid::new_v4(), f.file_name.clone().unwrap());
-    let path = format!("./{}", filename);
+
+    let path = format!("{}/temp_curriculum/{}", temp_dir().display(), filename);
+
     f.file.persist(path.clone()).unwrap();
 
+    let ftype = f.content_type.unwrap().to_string();
+    println!("tipo: {}", ftype);
+
+    let type_value: Result<String, HttpResponse> = match ftype {
+        ftype if ftype == String::from("application/pdf") => Ok(String::from("application/pdf")),
+        ftype if ftype == String::from("application/msword") => Ok(String::from("application/msword")),
+        ftype if ftype == String::from("application/vnd.openxmlformats-officedocument.wordprocessingml.document") => Ok(String::from("application/vnd.openxmlformats-officedocument.wordprocessingml.document")),
+        _ => Err(HttpResponse::BadRequest().json("[!] The file format is invalid."))
+    };
+    
+    if let Err(err) = type_value {
+        return err;
+    }
+
+    let type_value = type_value.unwrap();
+
     let filebody = fs::read(path.clone()).unwrap();
-    let content_type = ContentType::parse("application/pdf").unwrap();
+
+    let content_type = ContentType::parse(type_value.as_str()).unwrap();
+
     let attachment = Attachment::new(filename).body(filebody, content_type);
 
 
@@ -125,20 +155,20 @@ pub async fn send_work_with_us(MultipartForm(form): MultipartForm<Curriculum>) -
         .multipart(
             MultiPart::mixed()
                 .singlepart(SinglePart::builder()
-                    .header(header::ContentType::TEXT_HTML)
+                    .header(header::ContentType::TEXT_PLAIN)
                     .body(body.parse::<String>().unwrap())
                 )
                 .singlepart(attachment)
         ).unwrap();
 
-    let mailer = SmtpTransport::starttls_relay(&host)
+    let mailer = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&host)
         .unwrap()
         .authentication(vec![Mechanism::Plain])
         .credentials(Credentials::new(username.to_owned(), password.to_owned()))
         .port(587)
         .build();
 
-    match mailer.send(&message) {
+    match mailer.send(message).await {
         Ok(_) => HttpResponse::Ok().json("Caguei pro c"),
         Err(err) => {
             println!("O erro é o seguinte: {}", err);
@@ -150,7 +180,7 @@ pub async fn send_work_with_us(MultipartForm(form): MultipartForm<Curriculum>) -
 
 pub async fn send_support(app_state: web::Data<AppState>, req: web::Json<User>) -> impl Responder {
     
-    if let Err(err) = validate(&req.name, &req.email, &req.phone, &req.subject, &req.message) { 
+    if let Err(err) = validate(&req.name, &req.email, &req.phone, Some(&req.subject), &req.message) { 
         return HttpResponse::BadRequest().json(err);
     } 
 

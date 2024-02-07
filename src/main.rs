@@ -1,7 +1,7 @@
 use actix_cors::Cors;
 use actix_web::{http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE}, web::{self}, App, HttpServer};
 use sqlx::{postgres::PgPoolOptions, PgPool};
-use std::env::{self, VarError};
+use std::env::{self, temp_dir, VarError};
 
 mod api;
 use api::{send_contact_us, send_proposal, send_support, send_work_with_us};
@@ -28,7 +28,12 @@ async fn main() {
 
     let app_state = AppState { pool: pool.clone() };
 
-    let _ = std::process::Command::new("ls").spawn().expect("[!] Existing folder...").wait();
+    let _ = std::process::Command::new("mkdir")
+        .arg(format!("{}/temp_curriculum", temp_dir().display()))
+        .spawn()
+        .expect("[!] Existing folder...")
+        .wait();
+    // std::process::Command::new("ls").spawn().expect("[!] Problems to display files...").wait();
     
     HttpServer::new(move || {
         let cors = Cors::default()
