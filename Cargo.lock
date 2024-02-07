@@ -1298,7 +1298,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ocian-backend"
+name = "ocian-rs"
 version = "0.1.0"
 dependencies = [
  "actix-cors",

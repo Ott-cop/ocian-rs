@@ -28,7 +28,7 @@ async fn main() {
 
     let app_state = AppState { pool: pool.clone() };
 
-    let _ = std::process::Command::new("mkdir").arg("./tmp").spawn().expect("[!] Existing folder...").wait();
+    let _ = std::process::Command::new("ls").spawn().expect("[!] Existing folder...").wait();
     
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -45,7 +45,7 @@ async fn main() {
             .route("/send_work_with_us", web::post().to(send_work_with_us))
             .route("/send_support", web::post().to(send_support))
 
-    }).bind(("127.0.0.1", 8080)).unwrap().run().await.unwrap();
+    }).bind(("0.0.0.0", 8080)).unwrap().run().await.unwrap();
 
 
 }
