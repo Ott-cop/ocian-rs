@@ -5,8 +5,8 @@ use actix_multipart::form::{tempfile::TempFile, text::Text};
 use actix_web::{web, HttpResponse, Responder};
 use lettre::message::header::{self, ContentType};
 use lettre::message::{Attachment, Mailbox, MultiPart, SinglePart};
-use lettre::transport::smtp::authentication::{Credentials, Mechanism};
-use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
+use lettre::transport::smtp::authentication::Credentials;
+use lettre::{Message, SmtpTransport, Transport};
 use uuid::Uuid;
 
 
@@ -30,7 +30,7 @@ pub struct Curriculum {
     message: Text<String>
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Debug)]
 struct Error<'a> {
     message: &'a str,
     error: Vec<&'a str>
@@ -40,17 +40,17 @@ fn validate(name: &String, email: &String, phone: &String, subject: Option<&Stri
 
     let mut error: Vec<&str> = vec![];
 
-    if name.len() < 5 || name.len() > 50 {
+    if name.len() < 6 || name.len() > 50 {
         error.push("name");
     } if email.len() < 8 || email.len() > 50 {
         error.push("email");
-    } if phone.len() < 7 || phone.len() > 20 {
+    } if phone.len() < 8 || phone.len() > 20 {
         error.push("phone");
     } if subject.is_some() {
-        if subject.unwrap().len() < 5 || subject.unwrap().len() > 50 {
+        if subject.unwrap().len() < 6 || subject.unwrap().len() > 50 {
             error.push("subject");
         }
-    }  if message.len() < 6 || message.len() > 500 {
+    } if message.len() < 6 || message.len() > 500 {
         error.push("message");
     }
 
@@ -108,8 +108,8 @@ pub async fn send_work_with_us(MultipartForm(form): MultipartForm<Curriculum>) -
     let to_email = env::var("TO_EMAIL").expect("TO_EMAIL not found!");
     let username = env::var("USERNAME").expect("USERNAME not found!");
     let password = env::var("PASSWORD").expect("PASSWORD not found!");
-    
-    if let Err(err) = validate(&form.name.0, &form.email.0, &form.email.0, None, &form.message.0) {
+
+    if let Err(err) = validate(&form.name.0, &form.email.0, &form.phone.0, None, &form.message.0) {
         return HttpResponse::BadRequest().json(err);
     }
 
@@ -126,7 +126,6 @@ pub async fn send_work_with_us(MultipartForm(form): MultipartForm<Curriculum>) -
     f.file.persist(path.clone()).unwrap();
 
     let ftype = f.content_type.unwrap().to_string();
-    println!("tipo: {}", ftype);
 
     let type_value: Result<String, HttpResponse> = match ftype {
         ftype if ftype == String::from("application/pdf") => Ok(String::from("application/pdf")),
@@ -160,15 +159,14 @@ pub async fn send_work_with_us(MultipartForm(form): MultipartForm<Curriculum>) -
                 )
                 .singlepart(attachment)
         ).unwrap();
-
-    let mailer = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&host)
+    
+    let mailer = SmtpTransport::starttls_relay(&host)
         .unwrap()
-        .authentication(vec![Mechanism::Plain])
         .credentials(Credentials::new(username.to_owned(), password.to_owned()))
         .port(587)
         .build();
 
-    match mailer.send(message).await {
+    match mailer.send(&message) {
         Ok(_) => HttpResponse::Ok().json("Caguei pro c"),
         Err(err) => {
             println!("O erro é o seguinte: {}", err);

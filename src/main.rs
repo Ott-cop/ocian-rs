@@ -33,7 +33,6 @@ async fn main() {
         .spawn()
         .expect("[!] Existing folder...")
         .wait();
-    // std::process::Command::new("ls").spawn().expect("[!] Problems to display files...").wait();
     
     HttpServer::new(move || {
         let cors = Cors::default()
