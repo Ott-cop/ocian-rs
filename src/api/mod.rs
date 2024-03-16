@@ -113,7 +113,7 @@ pub async fn send_proposal(app_state: web::Data<AppState>, req: web::Json<User>)
     .bind(&req.phone)
     .bind(&req.subject)
     .bind(&req.message)
-    .execute(&app_state.pool).await {
+    .execute(&*app_state.pool.read().unwrap()).await {
         Ok(_) => HttpResponse::Ok().json("The request has been sended!"),
         Err(err) => HttpResponse::BadRequest().json(err.to_string())
     }
@@ -131,13 +131,14 @@ pub async fn send_contact_us(app_state: web::Data<AppState>, req: web::Json<User
     .bind(&req.phone)
     .bind(&req.subject)
     .bind(&req.message)
-    .execute(&app_state.pool).await {
+    .execute(&*app_state.pool.read().unwrap()).await {
         Ok(_) => HttpResponse::Ok().json("The request has been sended!"),
         Err(err) => HttpResponse::BadRequest().json(err.to_string())
     }
 }
 
 pub async fn send_work_with_us(MultipartForm(mut form): MultipartForm<Curriculum>) -> impl Responder {
+    
     let from_email: String = env::var("FROM_EMAIL").expect("FROM_EMAIL not found!");
     let host: String = env::var("HOST").expect("HOST not found!");
     let to_email = env::var("TO_EMAIL").expect("TO_EMAIL not found!");
@@ -182,7 +183,7 @@ pub async fn send_support(app_state: web::Data<AppState>, req: web::Json<User>) 
     .bind(&req.phone)
     .bind(&req.subject)
     .bind(&req.message)
-    .execute(&app_state.pool).await {
+    .execute(&*app_state.pool.read().unwrap()).await {
         Ok(_) => HttpResponse::Ok().json("The request has been sended!"),
         Err(err) => HttpResponse::BadRequest().json(err.to_string())
     }
