@@ -1,14 +1,14 @@
 use actix_cors::Cors;
 use actix_web::{http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE}, web::{self}, App, HttpServer};
 use sqlx::{postgres::PgPoolOptions, PgPool};
-use std::{env::{self, VarError}, sync::{Arc, RwLock}};
+use std::{env::{self, VarError}, sync::{Arc, Mutex}};
 
 mod api;
 use api::{send_contact_us, send_proposal, send_support, send_work_with_us};
 
 #[derive(Clone)]
 struct AppState {
-    pool: Arc<RwLock<PgPool>>  
+    pool: Arc<Mutex<PgPool>>  
 }
 
 #[actix_web::main]
@@ -23,9 +23,9 @@ async fn main() {
         Ok(_) => println!("[+] Stabilized connection to the server!"),
         Err(err) => println!("[!] Error found: {}", err)
     }
-    let pool = Arc::new(RwLock::new(pool.unwrap()));
+    let pool = Arc::new(Mutex::new(pool.unwrap()));
 
-    let _ = sqlx::migrate!("./migrations").run(&*pool.read().unwrap()).await; 
+    let _ = sqlx::migrate!("./migrations").run(&*pool.lock().unwrap()).await; 
     
     HttpServer::new(move || {
         let cors = Cors::default()
