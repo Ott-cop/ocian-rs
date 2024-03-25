@@ -7,26 +7,67 @@ use lettre::message::header::{self, ContentType};
 use lettre::message::{Attachment, Mailbox, MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
+use validator::Validate;
 
 use crate::AppState;
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Validate)]
 pub struct User {
+    #[validate(length(min = 5, max = 50))]
     name: String,
+
+    #[validate(length(min = 7, max = 50), email)]
     email: String,
+
+    #[validate(length(min = 7, max = 20))]
     phone: String,
+
+    #[validate(length(min = 5, max = 50))]
     subject: String,
+
+    #[validate(length(min = 5, max = 500))]
     message: String,
 }
 
+
 #[derive(MultipartForm)]
-pub struct Curriculum {
+pub struct RecvCurriculum {
     name: Text<String>,
     email: Text<String>,
     phone: Text<String>,
     file: TempFile,
     message: Text<String>
 }
+
+#[derive(Validate)]
+struct Curriculum {
+    #[validate(length(min = 5, max = 50))]
+    name: String,
+
+    #[validate(length(min = 7, max = 50), email)]
+    email: String,
+
+    #[validate(length(min = 7, max = 20))]
+    phone: String,
+
+    file: TempFile,
+
+    #[validate(length(min = 5, max = 500))]
+    message: String
+}
+
+impl Curriculum {
+    fn new(recv_curriculum: RecvCurriculum) -> Curriculum {
+        Curriculum {
+            name: recv_curriculum.name.0,
+            email: recv_curriculum.email.0,
+            phone: recv_curriculum.phone.0,
+            file: recv_curriculum.file,
+            message: recv_curriculum.message.0
+        }
+    }
+}
+
 
 #[derive(serde::Serialize, Debug)]
 struct Error<'a> {
@@ -116,10 +157,6 @@ impl Mail {
     }
 
     fn new(&self, form: Curriculum) -> Result<(SmtpTransport, Message), HttpResponse> {
-
-        if let Err(err) = validate(&form.name.0, &form.email.0, &form.phone.0, None, &form.message.0, Some(&form.file)) {
-            return Err(HttpResponse::BadRequest().json(err));
-        }
         
         let mut formfile = form.file;
         let file = FileForm::new(&mut formfile);
@@ -133,7 +170,7 @@ impl Mail {
 
         let attachment = Attachment::new(formfile.file_name.clone().unwrap()).body(file.file, content_type);
 
-        let body = format!("\nNome: {}\nEmail: {}\nTelefone: {}\n\nMensagem: {}", form.name.0, form.email.0, form.phone.0, form.message.0);
+        let body = format!("\nNome: {}\nEmail: {}\nTelefone: {}\n\nMensagem: {}", form.name, form.email, form.phone, form.message);
 
         let message = Message::builder()
             .from(self.from_email.parse::<Mailbox>().unwrap())
@@ -158,45 +195,10 @@ impl Mail {
     }
 }
 
-fn validate(name: &String, email: &String, phone: &String, subject: Option<&String>, message: &String, file: Option<&TempFile>) -> Result<(), Error<'static>> {
-
-    let mut error: Vec<&str> = vec![];
-
-    if name.len() < 6 || name.len() > 50 {
-        error.push("name");
-    } if email.len() < 8 || email.len() > 50 {
-        error.push("email");
-    } if phone.len() < 8 || phone.len() > 20 {
-        error.push("phone");
-    } if subject.is_some() {
-        if subject.unwrap().len() < 6 || subject.unwrap().len() > 50 {
-            error.push("subject");
-        }
-    } if message.len() < 6 || message.len() > 500 {
-        error.push("message");
-    } if file.is_some() {
-        let file = file.unwrap();
-
-        if file.file_name.is_none() {
-            error.push("file");
-        } 
-    }
-
-    let error_json = Error {
-        message: "The following fields are incorrect:",
-        error: error.clone()
-    };
-
-    if error.len() > 0 {
-        return Err(error_json);
-    }
-
-    Ok(())
-}
 
 pub async fn send_proposal(app_state: web::Data<AppState>, req: web::Json<User>) -> impl Responder {
     
-    if let Err(err) = validate(&req.name, &req.email, &req.phone, Some(&req.subject), &req.message, None) { 
+    if let Err(err) = req.validate() {
         return HttpResponse::BadRequest().json(err);
     } 
 
@@ -206,18 +208,24 @@ pub async fn send_proposal(app_state: web::Data<AppState>, req: web::Json<User>)
 
 pub async fn send_contact_us(app_state: web::Data<AppState>, req: web::Json<User>) -> impl Responder {
 
-    if let Err(err) = validate(&req.name, &req.email, &req.phone, Some(&req.subject), &req.message, None) { 
+    if let Err(err) = req.validate() {
         return HttpResponse::BadRequest().json(err);
-    } 
+    }
 
     let db = Database::new("contact_us", app_state);
     db.insert(req).await
 
 }
 
-pub async fn send_work_with_us(MultipartForm(form): MultipartForm<Curriculum>) -> impl Responder {
-    
+pub async fn send_work_with_us(MultipartForm(form): MultipartForm<RecvCurriculum>) -> impl Responder {
+    let form = Curriculum::new(form);
+
+    if let Err(err) = form.validate() {
+        return HttpResponse::BadRequest().json(err);
+    }
+
     let mail = Mail::env_init();
+
     let email = mail.new(form);
 
     if let Err(err_mail) = email{
@@ -235,9 +243,9 @@ pub async fn send_work_with_us(MultipartForm(form): MultipartForm<Curriculum>) -
 
 pub async fn send_support(app_state: web::Data<AppState>, req: web::Json<User>) -> impl Responder {
     
-    if let Err(err) = validate(&req.name, &req.email, &req.phone, Some(&req.subject), &req.message, None) { 
+    if let Err(err) = req.validate() {
         return HttpResponse::BadRequest().json(err);
-    } 
+    }
 
     let db = Database::new("support", app_state);
     db.insert(req).await

@@ -29,6 +29,7 @@ async fn main() {
     
     HttpServer::new(move || {
         let cors = Cors::default()
+            .allowed_origin("http://localhost:8080")
             .allowed_origin("https://ocian.vercel.app")
             .allowed_headers(vec![CONTENT_TYPE, ACCESS_CONTROL_ALLOW_ORIGIN])
             .allowed_methods(vec!["POST"])
