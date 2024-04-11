@@ -37,26 +37,29 @@ impl FileForm {
 
 pub struct Mail {
     host: String,
+    port: u16,
+    email: String,
     username: String,
-    password: String,
-    from_email: String,
-    to_email: String
+    password: String
 }
 
 impl Mail {
     pub fn env_init() -> Mail {
-        let from_email = env::var("FROM_EMAIL").expect("FROM_EMAIL not found!");
-        let host = env::var("HOST").expect("HOST not found!");
-        let to_email = env::var("TO_EMAIL").expect("TO_EMAIL not found!");
-        let username = env::var("USERNAME").expect("USERNAME not found!");
-        let password = env::var("PASSWORD").expect("PASSWORD not found!");
+        let email = env::var("EMAIL").expect("Enter the EMAIL environment variable correctly");
+        let port = env::var("PORT").expect("Enter the PORT environment variable correctly")
+            .trim()
+            .parse::<u16>()
+            .expect("Enter the PORT environment variable correctly");
+        let host = env::var("HOST").expect("Enter the HOST environment variable correctly");
+        let username = env::var("USERNAME").expect("Enter the USERNAME environment variable correctly");
+        let password = env::var("PASSWORD").expect("Enter the PASSWORD environment variable correctly");
 
         Mail {
             host,
+            port,
+            email,
             username,
-            password,
-            from_email,
-            to_email
+            password
         }
     }
 
@@ -77,8 +80,8 @@ impl Mail {
         let body = format!("\nNome: {}\nEmail: {}\nTelefone: {}\n\nMensagem: {}", form.name, form.email, form.phone, form.message);
 
         let message = Message::builder()
-            .from(self.from_email.parse::<Mailbox>().unwrap())
-            .to(self.to_email.parse::<Mailbox>().unwrap())
+            .from(self.email.parse::<Mailbox>().unwrap())
+            .to(self.email.parse::<Mailbox>().unwrap())
             .multipart(
                 MultiPart::mixed()
                     .singlepart(SinglePart::builder()
@@ -91,10 +94,9 @@ impl Mail {
         let mailer = SmtpTransport::starttls_relay(&self.host)
             .unwrap()
             .credentials(Credentials::new(self.username.to_owned(), self.password.to_owned()))
-            .port(587)
+            .port(self.port)
             .build();
 
         Ok((mailer, message))
-
     }
 }

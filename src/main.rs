@@ -1,7 +1,7 @@
 use actix_cors::Cors;
 use actix_web::{http::{header::{ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE}, KeepAlive}, web, App, HttpServer};
 use sqlx::{postgres::PgPoolOptions, PgPool};
-use std::{env::{self, VarError}, time::Duration};
+use std::{env::{self}, time::Duration};
 
 mod api;
 mod models;
@@ -17,9 +17,15 @@ async fn main() {
     
     dotenv::dotenv().ok();
 
-    let db_url: Result<String, VarError> = env::var("DATABASE_URL");
+    let db_user = env::var("DB_USER").expect("Enter the DB_USER environment variable correctly");
+    let db_password = env::var("DB_PASSWORD").expect("Enter the DB_PASSWORD environment variable correctly");
+    let db_name = env::var("DATABASE_NAME").expect("Enter the DATABASE_NAME environment variable correctly");
+    let db_server = env::var("DATABASE_HOST").expect("Enter the DATABASE_HOST environment variable correctly");
+    let db_port = env::var("DATABASE_PORT").expect("Enter the DATABASE_PORT environment variable correctly");
 
-    let pool = match PgPoolOptions::new().connect(db_url.unwrap().as_str()).await {
+    let conn = format!("postgres://{db_user}:{db_password}@{db_server}:{db_port}/{db_name}");
+    
+    let pool = match PgPoolOptions::new().connect(&conn).await {
         Ok(pool) => { 
             println!("[+] Stabilized connection to the server!");
             pool
