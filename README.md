@@ -1,6 +1,6 @@
 <h1>Ocian-Rust!</h1>
 
-> <p>Example of backend using the company Ocian - Barra Bonita.</p>
+> <p>Example of backend for study using the company Ocian - Barra Bonita, as a brand.</p>
 
 <p> Backend 100% made in Rust 🦀 with Actix-Web, using less than 5 MB of RAM and high speed! 🚀 </p>
 <p>This project contains 3 contact forms stored in the Postgresql database and another for resumes sent via email.</p>

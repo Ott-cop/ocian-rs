@@ -55,8 +55,6 @@ async fn main() {
     })
     .bind(("0.0.0.0", 8080))
     .unwrap()
-    .shutdown_timeout(5)
-    .keep_alive(KeepAlive::Timeout(Duration::from_millis(1000)))
     .run()
     .await
     .unwrap();
