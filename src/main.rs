@@ -1,7 +1,7 @@
 use actix_cors::Cors;
-use actix_web::{http::{header::{ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE}, KeepAlive}, web, App, HttpServer};
+use actix_web::{http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE}, web, App, HttpServer};
 use sqlx::{postgres::PgPoolOptions, PgPool};
-use std::{env::{self}, time::Duration};
+use std::env::{self};
 
 mod api;
 mod models;

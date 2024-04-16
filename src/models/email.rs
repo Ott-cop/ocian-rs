@@ -46,13 +46,13 @@ pub struct Mail {
 impl Mail {
     pub fn env_init() -> Mail {
         let email = env::var("EMAIL").expect("Enter the EMAIL environment variable correctly");
-        let port = env::var("PORT").expect("Enter the PORT environment variable correctly")
+        let port = env::var("SMTP_PORT").expect("Enter the SMTP_PORT environment variable correctly")
             .trim()
             .parse::<u16>()
-            .expect("Enter the PORT environment variable correctly");
-        let host = env::var("HOST").expect("Enter the HOST environment variable correctly");
-        let username = env::var("USERNAME").expect("Enter the USERNAME environment variable correctly");
-        let password = env::var("PASSWORD").expect("Enter the PASSWORD environment variable correctly");
+            .expect("Enter the SMTP_PORT environment variable correctly");
+        let host = env::var("SMTP_HOST").expect("Enter the SMTP_HOST environment variable correctly");
+        let username = env::var("SMTP_USERNAME").expect("Enter the SMTP_USERNAME environment variable correctly");
+        let password = env::var("SMTP_PASSWORD").expect("Enter the SMTP_PASSWORD environment variable correctly");
 
         Mail {
             host,
@@ -82,6 +82,7 @@ impl Mail {
         let message = Message::builder()
             .from(self.email.parse::<Mailbox>().unwrap())
             .to(self.email.parse::<Mailbox>().unwrap())
+            .subject("Formulário - Trabalhe Conosco")
             .multipart(
                 MultiPart::mixed()
                     .singlepart(SinglePart::builder()

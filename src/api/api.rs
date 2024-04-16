@@ -60,7 +60,7 @@ pub async fn send_work_with_us(MultipartForm(form): MultipartForm<RecvCurriculum
 
     match mailer.send(&message) {
         Ok(_) => HttpResponse::Ok().json(RESPONSE),
-        Err(err) => HttpResponse::BadRequest().json(Response { response: &err.to_string() })
+        Err(err) => HttpResponse::BadRequest().json(Response { response: &err.to_string() }) 
     }
     
 }
