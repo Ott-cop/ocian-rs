@@ -13,17 +13,19 @@ use crate::models::email::Mail;
 const RESPONSE: Response<'static> = Response { response: "The message has been sended!" };
 
 pub async fn send_proposal(app_state: web::Data<AppState>, req: web::Json<User>) -> impl Responder {
-    
+ 
     if let Err(err) = req.validate() {
         return HttpResponse::BadRequest().json(err);
     } 
+
+    let resp = req.clone();
 
     let db = Database::table("proposal", app_state);
     if let Err(err) = db.insert(req).await {
         return HttpResponse::BadRequest().json(err.to_string());
     }
 
-    HttpResponse::Ok().json(RESPONSE)
+    HttpResponse::Ok().json(resp)
 }
 
 pub async fn send_contact_us(app_state: web::Data<AppState>, req: web::Json<User>) -> impl Responder {
@@ -32,12 +34,14 @@ pub async fn send_contact_us(app_state: web::Data<AppState>, req: web::Json<User
         return HttpResponse::BadRequest().json(err);
     }
 
+    let resp = req.clone();
+
     let db = Database::table("contact_us", app_state);
     if let Err(err) = db.insert(req).await {
         return HttpResponse::BadRequest().json(err.to_string());
     }
 
-    HttpResponse::Ok().json(RESPONSE)
+    HttpResponse::Ok().json(resp)
 }
 
 pub async fn send_work_with_us(MultipartForm(form): MultipartForm<RecvCurriculum>) -> impl Responder {
@@ -71,12 +75,14 @@ pub async fn send_support(app_state: web::Data<AppState>, req: web::Json<User>) 
         return HttpResponse::BadRequest().json(err);
     }
 
+    let resp = req.clone();
+
     let db = Database::table("support", app_state);
     if let Err(err) = db.insert(req).await {
         return HttpResponse::BadRequest().json(err.to_string());
     }
 
-    HttpResponse::Ok().json(RESPONSE)
+    HttpResponse::Ok().json(resp)
 }
 
 

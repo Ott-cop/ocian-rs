@@ -1,6 +1,6 @@
 use validator::Validate;
 
-#[derive(serde::Deserialize, serde::Serialize, Validate)]
+#[derive(serde::Deserialize, serde::Serialize, Validate, Clone)]
 pub struct User {
     #[validate(length(min = 5, max = 50))]
     pub name: String,

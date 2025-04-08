@@ -1,20 +1,18 @@
 use actix_cors::Cors;
 use actix_web::{http::header::{ACCESS_CONTROL_ALLOW_ORIGIN, CONTENT_TYPE}, web, App, HttpServer};
 use sqlx::{postgres::PgPoolOptions, PgPool};
-use std::env::{self};
+use std::{env::{self}, sync::Mutex};
 
 mod api;
 mod models;
 use api::api::{send_contact_us, send_proposal, send_support, send_work_with_us};
 
-#[derive(Clone)]
 struct AppState {
-    pool: PgPool
+    pool: Mutex<PgPool>
 }
 
 #[actix_web::main]
 async fn main() {
-    
     dotenv::dotenv().ok();
 
     let db_user = env::var("DB_USER").expect("Enter the DB_USER environment variable correctly");
@@ -24,7 +22,7 @@ async fn main() {
     let db_port = env::var("DATABASE_PORT").expect("Enter the DATABASE_PORT environment variable correctly");
 
     let conn = format!("postgres://{db_user}:{db_password}@{db_server}:{db_port}/{db_name}");
-    
+
     let pool = match PgPoolOptions::new().connect(&conn).await {
         Ok(pool) => { 
             println!("[+] Stabilized connection to the server!");
@@ -36,6 +34,7 @@ async fn main() {
     };
 
     let _ = sqlx::migrate!("./migrations").run(&pool).await; 
+    let app_state = web::Data::new(AppState { pool: Mutex::new(pool) });
 
 
     HttpServer::new(move || {
@@ -46,7 +45,7 @@ async fn main() {
             .allowed_methods(vec!["POST"])
             .max_age(3600);
         App::new()
-        .app_data(web::Data::new(AppState { pool: pool.clone() }))
+        .app_data(app_state.clone())
             .wrap(cors)
             .route("/send_proposal", web::post().to(send_proposal))
             .route("/send_contact_us", web::post().to(send_contact_us))
